@@ -1,0 +1,52 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+/* College Navy Theme Accentuation */
+html.theme-navy {
+  color-scheme: dark;
+}
+html.theme-navy body {
+  background-color: #0b1329;
+}
+html.theme-navy .bg-slate-900 {
+  background-color: #0f1c3f;
+}
+html.theme-navy .bg-slate-950 {
+  background-color: #080d1d;
+}
+html.theme-navy .border-slate-800 {
+  border-color: #1e2954;
+}
+
+/* Emerald Academic Theme Accentuation */
+html.theme-emerald {
+  color-scheme: dark;
+}
+html.theme-emerald body {
+  background-color: #051c14;
+}
+html.theme-emerald .bg-slate-900 {
+  background-color: #09261c;
+}
+html.theme-emerald .bg-slate-950 {
+  background-color: #03120d;
+}
+html.theme-emerald .border-slate-800 {
+  border-color: #133c2e;
+}
+
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+  }
+}

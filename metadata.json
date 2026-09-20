@@ -1,0 +1,10 @@
+{
+  "name": "AI-Based Student Performance Prediction & Smart Academic Assistant",
+  "description": "Browser-based academic management and AI performance analysis system for college staff with dynamic subjects, internal assessment trends, attendance tracking, and smart assistant.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
