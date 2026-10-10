@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Printer,
   Sparkles,
@@ -10,6 +10,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   Loader2,
+  Search,
+  FileText,
 } from 'lucide-react';
 import { Student, SettingsConfig } from '../types';
 import { analyzeStudentPerformance } from '../utils/academicCalculations';
@@ -27,23 +29,154 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
   settings,
 }) => {
   const [activeStudentId, setActiveStudentId] = useState<string>(
-    selectedStudentId || (students.length > 0 ? students[0].id : '')
+    selectedStudentId || ''
   );
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [aiReport, setAiReport] = useState<AIAnalysisResult | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
 
-  const activeStudent = students.find((s) => s.id === activeStudentId) || students[0];
+  useEffect(() => {
+    setActiveStudentId(selectedStudentId || '');
+    setAiReport(null);
+  }, [selectedStudentId]);
 
-  if (!activeStudent) {
+  const activeStudent = students.find((s) => s.id === activeStudentId);
+
+  // If no students in system at all
+  if (students.length === 0) {
     return (
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12 text-center shadow-sm">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12 text-center shadow-sm max-w-2xl mx-auto">
         <h3 className="text-base font-semibold text-slate-900 dark:text-white">
           No students registered.
         </h3>
         <p className="text-xs text-slate-500 mt-1">
           Please add a student record before generating academic reports.
         </p>
+      </div>
+    );
+  }
+
+  // WAITING STATE: If no student selected yet, show chooser
+  if (!activeStudent) {
+    const query = searchQuery.toLowerCase().trim();
+    const matchingStudents = students.filter((s) => {
+      if (!query) return true;
+      return (
+        s.name.toLowerCase().includes(query) ||
+        s.registerNo.toLowerCase().includes(query) ||
+        s.department.toLowerCase().includes(query)
+      );
+    });
+
+    return (
+      <div className="space-y-6 max-w-4xl mx-auto">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm text-center space-y-4">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md">
+            <FileText className="w-7 h-7" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+              Academic Evaluation &amp; Report Generator
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
+              Please choose a student from the dropdown or search by name / register number below to generate and print their institutional academic review.
+            </p>
+          </div>
+
+          <div className="max-w-xl mx-auto space-y-3 pt-2">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search student by name, register number or branch..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <select
+                id="waiting-report-dropdown"
+                value={activeStudentId}
+                onChange={(e) => {
+                  setActiveStudentId(e.target.value);
+                  setAiReport(null);
+                }}
+                className="py-2 px-3 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">-- Choose Student from Dropdown --</option>
+                {students.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.registerNo}) — {s.department}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Student Cards List for Quick Selection */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+              Registered Students ({matchingStudents.length} of {students.length})
+            </span>
+            <span className="text-[11px] text-slate-400">
+              Click to view printable grade report
+            </span>
+          </div>
+
+          {matchingStudents.length === 0 ? (
+            <div className="p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-center text-xs text-slate-500">
+              No students match &quot;{searchQuery}&quot;.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {matchingStudents.map((s) => {
+                const perf = analyzeStudentPerformance(s, settings);
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveStudentId(s.id);
+                      setAiReport(null);
+                    }}
+                    className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-500 hover:shadow-md transition-all text-left flex flex-col justify-between group cursor-pointer"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <span className="font-bold text-xs text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                          {s.name}
+                        </span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                          {s.registerNo}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
+                        {s.department}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {s.year} • Sem {s.semester} • {s.subjects?.length || 0} subjects
+                      </p>
+                    </div>
+
+                    <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px]">
+                      <span className="font-semibold text-slate-700 dark:text-slate-300">
+                        Score: {perf.overallScore}/100
+                      </span>
+                      <span className="text-indigo-600 dark:text-indigo-400 font-bold group-hover:underline flex items-center">
+                        Generate Report &rarr;
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -72,7 +205,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
         <div className="flex items-center space-x-3">
           <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider whitespace-nowrap">
-            Select Student:
+            Active Student:
           </label>
           <select
             id="report-student-selector"
@@ -83,12 +216,23 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
             }}
             className="py-1.5 px-3 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
+            <option value="">-- Switch Student --</option>
             {students.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name} ({s.registerNo}) — {s.department}
               </option>
             ))}
           </select>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveStudentId('');
+              setAiReport(null);
+            }}
+            className="text-[11px] text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 underline whitespace-nowrap"
+          >
+            Change Student
+          </button>
         </div>
 
         <div className="flex items-center space-x-2">
@@ -240,13 +384,13 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
                       {sub.subjectCode || '—'}
                     </td>
                     <td className="py-2 px-2 text-center text-slate-800">
-                      {sub.rawIA1 !== null ? sub.rawIA1 : '—'}
+                      {sub.ia1Absent ? <span className="font-bold text-amber-700">AB</span> : sub.rawIA1 !== null ? sub.rawIA1 : '—'}
                     </td>
                     <td className="py-2 px-2 text-center text-slate-800">
-                      {sub.rawIA2 !== null ? sub.rawIA2 : '—'}
+                      {sub.ia2Absent ? <span className="font-bold text-amber-700">AB</span> : sub.rawIA2 !== null ? sub.rawIA2 : '—'}
                     </td>
                     <td className="py-2 px-2 text-center text-slate-800">
-                      {sub.rawIA3 !== null ? sub.rawIA3 : '—'}
+                      {sub.ia3Absent ? <span className="font-bold text-amber-700">AB</span> : sub.rawIA3 !== null ? sub.rawIA3 : '—'}
                     </td>
                     <td className="py-2 px-2 text-center text-[11px] font-medium">
                       {sub.iaTrend}

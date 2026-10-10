@@ -16,6 +16,8 @@ import {
   Loader2,
   ArrowRight,
   Bot,
+  Search,
+  UserCheck,
 } from 'lucide-react';
 import { Student, SettingsConfig } from '../types';
 import { analyzeStudentPerformance } from '../utils/academicCalculations';
@@ -35,8 +37,9 @@ export const PerformanceAnalysisView: React.FC<PerformanceAnalysisViewProps> = (
   onNavigate,
 }) => {
   const [activeStudentId, setActiveStudentId] = useState<string>(
-    selectedStudentId || (students.length > 0 ? students[0].id : '')
+    selectedStudentId || ''
   );
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState<AIAnalysisResult | null>(null);
@@ -46,30 +49,155 @@ export const PerformanceAnalysisView: React.FC<PerformanceAnalysisViewProps> = (
   const [showFormulaModal, setShowFormulaModal] = useState(false);
 
   useEffect(() => {
-    if (selectedStudentId) {
-      setActiveStudentId(selectedStudentId);
-      setAiResult(null);
-      setActiveAiTab(null);
-    }
+    setActiveStudentId(selectedStudentId || '');
+    setAiResult(null);
+    setActiveAiTab(null);
   }, [selectedStudentId]);
 
-  const activeStudent = students.find((s) => s.id === activeStudentId) || students[0];
+  const activeStudent = students.find((s) => s.id === activeStudentId);
 
-  if (!activeStudent) {
+  // If no students in system at all
+  if (students.length === 0) {
     return (
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12 text-center shadow-sm">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12 text-center shadow-sm max-w-2xl mx-auto">
         <h3 className="text-base font-semibold text-slate-900 dark:text-white">
-          No student selected or registered.
+          No students registered yet.
         </h3>
         <p className="text-xs text-slate-500 mt-1">
-          Please add a student record or load demo data to view academic analysis.
+          Please add a student record or load sample data to view academic performance analysis.
         </p>
         <button
           onClick={() => onNavigate('add-student')}
-          className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white rounded-lg"
+          className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white rounded-lg shadow-sm"
         >
           + Add Student
         </button>
+      </div>
+    );
+  }
+
+  // WAITING STATE: If no student has been chosen yet, show search & dropdown selection
+  if (!activeStudent) {
+    const query = searchQuery.toLowerCase().trim();
+    const matchingStudents = students.filter((s) => {
+      if (!query) return true;
+      return (
+        s.name.toLowerCase().includes(query) ||
+        s.registerNo.toLowerCase().includes(query) ||
+        s.department.toLowerCase().includes(query)
+      );
+    });
+
+    return (
+      <div className="space-y-6 max-w-4xl mx-auto">
+        <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-8 shadow-sm text-center space-y-4">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
+            <Award className="w-7 h-7" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+              Academic Performance &amp; CIA Analysis
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
+              Please choose a student from the dropdown or search by name / register number below to view their detailed performance analytics.
+            </p>
+          </div>
+
+          <div className="max-w-xl mx-auto space-y-3 pt-2">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search by name, register number or branch..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <select
+                id="waiting-analysis-dropdown"
+                value={activeStudentId}
+                onChange={(e) => {
+                  setActiveStudentId(e.target.value);
+                  setAiResult(null);
+                  setActiveAiTab(null);
+                }}
+                className="py-2 px-3 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">-- Choose Student from Dropdown --</option>
+                {students.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.registerNo}) — {s.department}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Student Cards List for Quick One-Click Selection */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+              Registered Students ({matchingStudents.length} of {students.length})
+            </span>
+            <span className="text-[11px] text-slate-400">
+              Click any student to view complete metrics
+            </span>
+          </div>
+
+          {matchingStudents.length === 0 ? (
+            <div className="p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-center text-xs text-slate-500">
+              No students match &quot;{searchQuery}&quot;. Please verify the register number or name.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {matchingStudents.map((s) => {
+                const perf = analyzeStudentPerformance(s, settings);
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveStudentId(s.id);
+                      setAiResult(null);
+                      setActiveAiTab(null);
+                    }}
+                    className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-500 hover:shadow-md transition-all text-left flex flex-col justify-between group cursor-pointer"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-1 mb-1">
+                        <span className="font-bold text-xs text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                          {s.name}
+                        </span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                          {s.registerNo}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
+                        {s.department}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">
+                        {s.year} • Sem {s.semester} • {s.subjects?.length || 0} subjects
+                      </p>
+                    </div>
+
+                    <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px]">
+                      <span className="font-semibold text-slate-700 dark:text-slate-300">
+                        Score: {perf.overallScore}/100
+                      </span>
+                      <span className="text-indigo-600 dark:text-indigo-400 font-bold group-hover:underline flex items-center">
+                        Select &rarr;
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -125,7 +253,7 @@ export const PerformanceAnalysisView: React.FC<PerformanceAnalysisViewProps> = (
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider whitespace-nowrap">
-            Select Student:
+            Active Student:
           </label>
           <select
             id="analysis-student-selector"
@@ -137,12 +265,24 @@ export const PerformanceAnalysisView: React.FC<PerformanceAnalysisViewProps> = (
             }}
             className="py-1.5 px-3 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
+            <option value="">-- Switch Student --</option>
             {students.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name} ({s.registerNo}) — {s.department}
               </option>
             ))}
           </select>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveStudentId('');
+              setAiResult(null);
+              setActiveAiTab(null);
+            }}
+            className="text-[11px] text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 underline whitespace-nowrap"
+          >
+            Change Student
+          </button>
         </div>
 
         <div className="flex items-center space-x-2">
@@ -398,25 +538,55 @@ export const PerformanceAnalysisView: React.FC<PerformanceAnalysisViewProps> = (
 
                   {/* IA1 */}
                   <td className="py-3 px-2 text-center">
-                    <div>{sub.rawIA1 !== null ? `${sub.rawIA1}/50` : '—'}</div>
+                    <div>
+                      {sub.ia1Absent ? (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                          Absent (0)
+                        </span>
+                      ) : sub.rawIA1 !== null ? (
+                        `${sub.rawIA1}/50`
+                      ) : (
+                        '—'
+                      )}
+                    </div>
                     <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
-                      {sub.convertedIA1 !== null ? `(${sub.convertedIA1}%)` : ''}
+                      {!sub.ia1Absent && sub.convertedIA1 !== null ? `(${sub.convertedIA1}%)` : ''}
                     </div>
                   </td>
 
                   {/* IA2 */}
                   <td className="py-3 px-2 text-center">
-                    <div>{sub.rawIA2 !== null ? `${sub.rawIA2}/50` : '—'}</div>
+                    <div>
+                      {sub.ia2Absent ? (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                          Absent (0)
+                        </span>
+                      ) : sub.rawIA2 !== null ? (
+                        `${sub.rawIA2}/50`
+                      ) : (
+                        '—'
+                      )}
+                    </div>
                     <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
-                      {sub.convertedIA2 !== null ? `(${sub.convertedIA2}%)` : ''}
+                      {!sub.ia2Absent && sub.convertedIA2 !== null ? `(${sub.convertedIA2}%)` : ''}
                     </div>
                   </td>
 
                   {/* IA3 */}
                   <td className="py-3 px-2 text-center">
-                    <div>{sub.rawIA3 !== null ? `${sub.rawIA3}/50` : '—'}</div>
+                    <div>
+                      {sub.ia3Absent ? (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                          Absent (0)
+                        </span>
+                      ) : sub.rawIA3 !== null ? (
+                        `${sub.rawIA3}/50`
+                      ) : (
+                        '—'
+                      )}
+                    </div>
                     <div className="text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">
-                      {sub.convertedIA3 !== null ? `(${sub.convertedIA3}%)` : ''}
+                      {!sub.ia3Absent && sub.convertedIA3 !== null ? `(${sub.convertedIA3}%)` : ''}
                     </div>
                   </td>
 
@@ -677,15 +847,16 @@ export const PerformanceAnalysisView: React.FC<PerformanceAnalysisViewProps> = (
               </p>
 
               <div className="bg-slate-50 dark:bg-slate-800 p-3 rounded-lg border border-slate-200 dark:border-slate-700 space-y-1.5 font-mono text-[11px]">
-                <div>1. Converted IA = (Raw Mark / 50) &times; 100</div>
-                <div>2. IA Part (55%) = (Consolidated Internal / 100) &times; 55</div>
-                <div>3. Assignment Part (20%) = (Assignment Total / 15) &times; 20</div>
-                <div>4. Attendance Part (20%) = (Periods Attended / Conducted) &times; 20</div>
-                <div>5. IA Trend Adjustment (5%):</div>
-                <div className="pl-4 text-emerald-600 dark:text-emerald-400">+5 marks if IA1 &lt; IA2 &lt; IA3 (Improving)</div>
-                <div className="pl-4 text-rose-600 dark:text-rose-400">-5 marks if IA1 &gt; IA2 &gt; IA3 (Declining)</div>
+                <div>1. Converted IA = (Raw Mark / 50) &times; 100 (Absent = 0)</div>
+                <div>2. Consolidated Mark = Average of evaluated IAs (e.g. 2 IAs = avg of 2; 2 IAs + Absent = avg of 3 with 0 for absent; none = 0)</div>
+                <div>3. IA Part (55%) = (Consolidated Internal / 100) &times; 55</div>
+                <div>4. Assignment Part (20%) = (Assignment Total / 15) &times; 20 (empty = 0)</div>
+                <div>5. Attendance Part (20%) = (Periods Attended / Conducted) &times; 20</div>
+                <div>6. IA Trend Adjustment (5%):</div>
+                <div className="pl-4 text-emerald-600 dark:text-emerald-400">+4 marks if Improving</div>
+                <div className="pl-4 text-rose-600 dark:text-rose-400">-4 marks if Declining</div>
                 <div className="pl-4 text-slate-500">0 marks for Stable or Insufficient data</div>
-                <div>Subject Score = IA Part + Assignment Part + Attendance Part + Trend Adj (Clamped 0-100)</div>
+                <div>Course Index = IA Part + Assignment Part + Attendance Part + Trend Adj (0-100)</div>
               </div>
 
               <h4 className="font-semibold text-slate-900 dark:text-white pt-1">

@@ -19,6 +19,7 @@ import {
   TrendingDown,
   Minus,
   FileCheck,
+  RotateCcw,
 } from 'lucide-react';
 import { Student, SettingsConfig } from '../types';
 import { analyzeStudentPerformance } from '../utils/academicCalculations';
@@ -52,17 +53,17 @@ export const StudentParentPortalView: React.FC<StudentParentPortalViewProps> = (
         setSearchRegNo(found.registerNo);
         setSearched(true);
       }
-    } else if (!activeStudent && students.length > 0) {
-      // Default to first student so page is never blank
-      setActiveStudent(students[0]);
-      setSearchRegNo(students[0].registerNo);
     }
   }, [initialRegNo, students]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     const query = searchRegNo.trim().toLowerCase();
-    if (!query) return;
+    if (!query) {
+      setActiveStudent(null);
+      setSearched(false);
+      return;
+    }
 
     setSearched(true);
     const found = students.find(
@@ -77,6 +78,12 @@ export const StudentParentPortalView: React.FC<StudentParentPortalViewProps> = (
     setActiveStudent(st);
     setSearchRegNo(st.registerNo);
     setSearched(true);
+  };
+
+  const handleResetSelection = () => {
+    setActiveStudent(null);
+    setSearchRegNo('');
+    setSearched(false);
   };
 
   const handleCopyLink = () => {
@@ -96,6 +103,17 @@ export const StudentParentPortalView: React.FC<StudentParentPortalViewProps> = (
   const performance = activeStudent
     ? analyzeStudentPerformance(activeStudent, settings.thresholds)
     : null;
+
+  // Filter for matching students when waiting
+  const query = searchRegNo.trim().toLowerCase();
+  const matchingStudents = students.filter((s) => {
+    if (!query) return true;
+    return (
+      s.name.toLowerCase().includes(query) ||
+      s.registerNo.toLowerCase().includes(query) ||
+      s.department.toLowerCase().includes(query)
+    );
+  });
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 py-6 px-4 sm:px-6 lg:px-8">
@@ -133,49 +151,65 @@ export const StudentParentPortalView: React.FC<StudentParentPortalViewProps> = (
       </div>
 
       <div className="max-w-5xl mx-auto space-y-6">
-        {/* Search Bar / Register Number Lookup Card */}
+        {/* Search Bar & Dropdown Card */}
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-5 shadow-sm">
-          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-3 items-center">
-            <div className="relative flex-1 w-full">
-              <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+          <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-2.5 items-stretch sm:items-center">
+            {/* Search Input */}
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
               <input
                 id="portal-regno-input"
                 type="text"
-                placeholder="Enter Register Number (e.g. 710022104001 or Student Name)"
+                placeholder="Search by Register Number or Student Name..."
                 value={searchRegNo}
                 onChange={(e) => setSearchRegNo(e.target.value)}
-                className="w-full pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-900 dark:text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
+
+            {/* Dropdown Selector */}
+            <select
+              id="portal-dropdown-select"
+              value={activeStudent?.id || ''}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (!val) {
+                  handleResetSelection();
+                  return;
+                }
+                const found = students.find((s) => s.id === val);
+                if (found) {
+                  handleSelectStudent(found);
+                }
+              }}
+              className="py-2 px-3 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 sm:max-w-xs"
+            >
+              <option value="">-- Choose Student from Dropdown --</option>
+              {students.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.registerNo}) — {s.department}
+                </option>
+              ))}
+            </select>
+
             <button
               id="portal-search-btn"
               type="submit"
-              className="w-full sm:w-auto px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold shadow-xs transition-colors whitespace-nowrap"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold shadow-xs transition-colors whitespace-nowrap cursor-pointer"
             >
-              Search Records
+              Search
             </button>
-          </form>
 
-          {/* Quick Demo Student Pills */}
-          {students.length > 0 && (
-            <div className="mt-3 flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-100 dark:border-slate-800 text-xs">
-              <span className="text-[11px] text-slate-400 mr-1 font-medium">Quick Cohort Select:</span>
-              {students.slice(0, 5).map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => handleSelectStudent(s)}
-                  className={`px-2 py-0.5 rounded text-[11px] font-mono transition-colors ${
-                    activeStudent?.id === s.id
-                      ? 'bg-indigo-600 text-white font-bold'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  {s.name.split(' ')[0]} ({s.registerNo})
-                </button>
-              ))}
-            </div>
-          )}
+            {activeStudent && (
+              <button
+                type="button"
+                onClick={handleResetSelection}
+                className="px-3 py-2 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-xs font-medium whitespace-nowrap transition-colors cursor-pointer"
+              >
+                Change Student
+              </button>
+            )}
+          </form>
         </div>
 
         {/* Not Found Alert */}
@@ -186,12 +220,133 @@ export const StudentParentPortalView: React.FC<StudentParentPortalViewProps> = (
               No Student Record Found
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto">
-              We couldn't locate any student matching &quot;{searchRegNo}&quot;. Please verify the University Register Number with the academic department or select from the quick list above.
+              We couldn't locate any student matching &quot;{searchRegNo}&quot;. Please verify the University Register Number or select your name directly from the dropdown above.
             </p>
+            <button
+              type="button"
+              onClick={handleResetSelection}
+              className="inline-flex items-center px-3.5 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-xs font-semibold text-slate-700 dark:text-slate-300 transition-colors"
+            >
+              <RotateCcw className="w-3.5 h-3.5 mr-1.5" />
+              Reset &amp; View All Records
+            </button>
           </div>
         )}
 
-        {/* Student Academic Record Card */}
+        {/* WAITING STATE: If no student selected yet, show chooser cards and guide */}
+        {!activeStudent && !searched && (
+          <div className="space-y-6">
+            {/* Welcoming Guidance Card */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-8 shadow-sm text-center space-y-4">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shadow-inner">
+                <GraduationCap className="w-7 h-7" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+                  Student &amp; Parent Academic Scorecard
+                </h2>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-lg mx-auto">
+                  Please choose a student from the dropdown or search by register number / name above to view their verified internal assessment marks, CIA trends, and attendance records.
+                </p>
+              </div>
+
+              {/* Informational Feature Highlights */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-4 text-left max-w-3xl mx-auto">
+                <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
+                  <div className="flex items-center space-x-2 text-indigo-600 dark:text-indigo-400 font-semibold text-xs mb-1">
+                    <Award className="w-4 h-4" />
+                    <span>Official CIA Assessments</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Transparent tracking of internal marks (IA1, IA2, IA3) converted out of 100 with dynamic subject weights.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
+                  <div className="flex items-center space-x-2 text-emerald-600 dark:text-emerald-400 font-semibold text-xs mb-1">
+                    <Clock className="w-4 h-4" />
+                    <span>Statutory Attendance</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Real-time monitoring of periods conducted vs. attended against the 75% university eligibility cutoff.
+                  </p>
+                </div>
+
+                <div className="p-3.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/40">
+                  <div className="flex items-center space-x-2 text-blue-600 dark:text-blue-400 font-semibold text-xs mb-1">
+                    <Sparkles className="w-4 h-4" />
+                    <span>Faculty Advisory</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Actionable feedback highlighting core strength areas and special remedial recommendations.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Student Cards List for Quick One-Click Selection */}
+            {students.length > 0 && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between px-1">
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    Enrolled Students ({matchingStudents.length} of {students.length})
+                  </span>
+                  <span className="text-[11px] text-slate-400">
+                    Click any student to view official scorecard
+                  </span>
+                </div>
+
+                {matchingStudents.length === 0 ? (
+                  <div className="p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-center text-xs text-slate-500">
+                    No students match &quot;{searchRegNo}&quot;.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {matchingStudents.map((s) => {
+                      const perf = analyzeStudentPerformance(s, settings.thresholds);
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => handleSelectStudent(s)}
+                          className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-500 hover:shadow-md transition-all text-left flex flex-col justify-between group cursor-pointer"
+                        >
+                          <div>
+                            <div className="flex items-center justify-between gap-1 mb-1">
+                              <span className="font-bold text-xs text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                                {s.name}
+                              </span>
+                              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                                {s.registerNo}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
+                              {s.department}
+                            </p>
+                            <p className="text-[10px] text-slate-400 mt-0.5">
+                              {s.year} • Sem {s.semester} • {s.subjects?.length || 0} subjects
+                            </p>
+                          </div>
+
+                          <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px]">
+                            <span className="font-semibold text-slate-700 dark:text-slate-300">
+                              Score: {perf.overallScore}/100
+                            </span>
+                            <span className="text-indigo-600 dark:text-indigo-400 font-bold group-hover:underline flex items-center">
+                              View Scorecard &rarr;
+                            </span>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Student Academic Record Card (Only when student IS chosen) */}
         {activeStudent && performance && (
           <div className="space-y-6">
             {/* Student Identity Card */}
@@ -220,6 +375,15 @@ export const StudentParentPortalView: React.FC<StudentParentPortalViewProps> = (
                 </div>
 
                 <div className="flex items-center space-x-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleResetSelection}
+                    className="inline-flex items-center px-3 py-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-xs font-medium border border-slate-200 dark:border-slate-700 transition-colors"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 mr-1 text-slate-500" />
+                    <span>Switch Student</span>
+                  </button>
+
                   <button
                     id="copy-parent-link-btn"
                     onClick={handleCopyLink}
@@ -415,13 +579,37 @@ export const StudentParentPortalView: React.FC<StudentParentPortalViewProps> = (
                             )}
                           </td>
                           <td className="px-3 py-3 text-center font-medium">
-                            {sub.ia1 !== null ? `${sub.ia1}/50` : '-'}
+                            {sub.ia1Absent ? (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                AB
+                              </span>
+                            ) : sub.ia1 !== null ? (
+                              `${sub.ia1}/50`
+                            ) : (
+                              '-'
+                            )}
                           </td>
                           <td className="px-3 py-3 text-center font-medium">
-                            {sub.ia2 !== null ? `${sub.ia2}/50` : '-'}
+                            {sub.ia2Absent ? (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                AB
+                              </span>
+                            ) : sub.ia2 !== null ? (
+                              `${sub.ia2}/50`
+                            ) : (
+                              '-'
+                            )}
                           </td>
                           <td className="px-3 py-3 text-center font-medium">
-                            {sub.ia3 !== null ? `${sub.ia3}/50` : '-'}
+                            {sub.ia3Absent ? (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                                AB
+                              </span>
+                            ) : sub.ia3 !== null ? (
+                              `${sub.ia3}/50`
+                            ) : (
+                              '-'
+                            )}
                           </td>
                           <td className="px-3 py-3 text-center font-bold text-indigo-600 dark:text-indigo-400">
                             {sub.consolidatedInternal !== null ? `${sub.consolidatedInternal}/100` : '-'}

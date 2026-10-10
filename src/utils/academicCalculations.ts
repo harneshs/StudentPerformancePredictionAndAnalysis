@@ -18,16 +18,23 @@ export const DEFAULT_THRESHOLDS = {
 /**
  * Converts IA marks obtained out of 50 to 100.
  * Converted IA = (Marks Obtained / 50) * 100
+ * If absent, returns 0.
+ * If empty or null, returns null.
  */
-export function convertIAMarks(marks: number | null | undefined): number | null {
-  if (marks === null || marks === undefined || isNaN(marks)) return null;
-  const clamped = Math.max(0, Math.min(50, marks));
+export function convertIAMarks(
+  marks: number | null | undefined,
+  isAbsent = false
+): number | null {
+  if (isAbsent) return 0;
+  if (marks === null || marks === undefined || isNaN(marks) || String(marks).trim() === '') return null;
+  const clamped = Math.max(0, Math.min(50, Number(marks)));
   return Math.round((clamped / 50) * 100 * 10) / 10;
 }
 
 /**
  * Calculates Assignment Total out of 15.
- * A1 + A2 + A3 (each 0 - 5)
+ * A1 + A2 + A3 (each 0 - 5).
+ * If no values entered, consider as 0.
  */
 export function calculateAssignmentTotal(
   a1: number | null | undefined,
@@ -44,20 +51,23 @@ export function calculateAssignmentTotal(
  * Calculates Attendance % = (Periods Attended / Periods Conducted) * 100
  */
 export function calculateAttendancePercentage(
-  conducted: number,
-  attended: number
+  conducted: number | null | undefined,
+  attended: number | null | undefined
 ): { percentage: number; isRisk: boolean; isValid: boolean; error?: string } {
-  if (!conducted || conducted <= 0) {
-    return { percentage: 0, isRisk: true, isValid: false, error: 'Conducted periods must be > 0' };
+  const c = typeof conducted === 'number' && !isNaN(conducted) ? Math.max(0, conducted) : 0;
+  const a = typeof attended === 'number' && !isNaN(attended) ? Math.max(0, attended) : 0;
+
+  if (c <= 0) {
+    return { percentage: 0, isRisk: false, isValid: true };
   }
-  if (attended < 0) {
+  if (a < 0) {
     return { percentage: 0, isRisk: true, isValid: false, error: 'Attended periods cannot be negative' };
   }
-  if (attended > conducted) {
+  if (a > c) {
     return { percentage: 100, isRisk: false, isValid: false, error: 'Attended cannot exceed conducted' };
   }
 
-  const percentage = Math.round((attended / conducted) * 10000) / 100;
+  const percentage = Math.round((a / c) * 10000) / 100;
   return {
     percentage,
     isRisk: percentage < 75,
@@ -66,18 +76,98 @@ export function calculateAttendancePercentage(
 }
 
 /**
+ * Calculates consolidated mark as average of evaluated IA exams.
+ * - If only two IA marks are entered, calculate only for 2 IA.
+ * - If two IA marks and absent for 3rd IA, calculate for 3 IA (absent counts as 0).
+ * - If three IA marks entered, average of three exams.
+ * - If no values entered, consider as 0.
+ */
+export function calculateConsolidatedMark(
+  ia1: number | null | undefined,
+  ia2: number | null | undefined,
+  ia3: number | null | undefined,
+  ia1Absent = false,
+  ia2Absent = false,
+  ia3Absent = false
+): number {
+  const evaluatedExams: number[] = [];
+
+  // IA 1
+  if (ia1Absent) {
+    evaluatedExams.push(0);
+  } else {
+    const c1 = convertIAMarks(ia1, false);
+    if (c1 !== null) evaluatedExams.push(c1);
+  }
+
+  // IA 2
+  if (ia2Absent) {
+    evaluatedExams.push(0);
+  } else {
+    const c2 = convertIAMarks(ia2, false);
+    if (c2 !== null) evaluatedExams.push(c2);
+  }
+
+  // IA 3
+  if (ia3Absent) {
+    evaluatedExams.push(0);
+  } else {
+    const c3 = convertIAMarks(ia3, false);
+    if (c3 !== null) evaluatedExams.push(c3);
+  }
+
+  // If no values entered, consider as 0
+  if (evaluatedExams.length === 0) {
+    return 0;
+  }
+
+  const sum = evaluatedExams.reduce((acc, v) => acc + v, 0);
+  return Math.round((sum / evaluatedExams.length) * 10) / 10;
+}
+
+/**
+ * Backward compatibility alias for calculateConsolidatedMark
+ */
+export function calculateSuggestedConsolidatedMark(
+  ia1: number | null | undefined,
+  ia2: number | null | undefined,
+  ia3: number | null | undefined,
+  ia1Absent = false,
+  ia2Absent = false,
+  ia3Absent = false
+): number {
+  return calculateConsolidatedMark(ia1, ia2, ia3, ia1Absent, ia2Absent, ia3Absent);
+}
+
+/**
  * Analyzes IA Performance Trend (IA1 -> IA2 -> IA3)
- * Detects: Improving, Stable, Declining, Insufficient data
+ * Detects: Improving, Stable, Declining, Insufficient data.
+ * Absent exams count as 0 mark in trend trajectory.
  */
 export function analyzeIATrend(
   ia1: number | null | undefined,
   ia2: number | null | undefined,
-  ia3: number | null | undefined
+  ia3: number | null | undefined,
+  ia1Absent = false,
+  ia2Absent = false,
+  ia3Absent = false
 ): IATrend {
   const scores: number[] = [];
-  if (typeof ia1 === 'number' && !isNaN(ia1)) scores.push(ia1);
-  if (typeof ia2 === 'number' && !isNaN(ia2)) scores.push(ia2);
-  if (typeof ia3 === 'number' && !isNaN(ia3)) scores.push(ia3);
+
+  if (ia1Absent) scores.push(0);
+  else if (ia1 !== null && ia1 !== undefined && !isNaN(ia1) && String(ia1).trim() !== '') {
+    scores.push(Math.max(0, Math.min(50, Number(ia1))));
+  }
+
+  if (ia2Absent) scores.push(0);
+  else if (ia2 !== null && ia2 !== undefined && !isNaN(ia2) && String(ia2).trim() !== '') {
+    scores.push(Math.max(0, Math.min(50, Number(ia2))));
+  }
+
+  if (ia3Absent) scores.push(0);
+  else if (ia3 !== null && ia3 !== undefined && !isNaN(ia3) && String(ia3).trim() !== '') {
+    scores.push(Math.max(0, Math.min(50, Number(ia3))));
+  }
 
   if (scores.length < 2) {
     return 'Insufficient Data';
@@ -105,62 +195,54 @@ export function analyzeIATrend(
 }
 
 /**
- * Optional helper to calculate default suggested consolidated internal mark
- * from average of available converted IAs.
- */
-export function calculateSuggestedConsolidatedMark(
-  ia1: number | null | undefined,
-  ia2: number | null | undefined,
-  ia3: number | null | undefined
-): number | null {
-  const convertedList: number[] = [];
-  const c1 = convertIAMarks(ia1);
-  const c2 = convertIAMarks(ia2);
-  const c3 = convertIAMarks(ia3);
-
-  if (c1 !== null) convertedList.push(c1);
-  if (c2 !== null) convertedList.push(c2);
-  if (c3 !== null) convertedList.push(c3);
-
-  if (convertedList.length === 0) return null;
-  const sum = convertedList.reduce((a, b) => a + b, 0);
-  return Math.round((sum / convertedList.length) * 10) / 10;
-}
-
-/**
  * Analyzes a single subject's performance metrics
  */
 export function analyzeSubject(subject: Subject): SubjectAnalysis {
-  const cIA1 = convertIAMarks(subject.ia1);
-  const cIA2 = convertIAMarks(subject.ia2);
-  const cIA3 = convertIAMarks(subject.ia3);
+  const cIA1 = convertIAMarks(subject.ia1, subject.ia1Absent);
+  const cIA2 = convertIAMarks(subject.ia2, subject.ia2Absent);
+  const cIA3 = convertIAMarks(subject.ia3, subject.ia3Absent);
   const assignmentTotal = calculateAssignmentTotal(
     subject.assignment1,
     subject.assignment2,
     subject.assignment3
   );
 
-  const att = calculateAttendancePercentage(
-    subject.periodsConducted,
-    subject.periodsAttended
-  );
+  const conducted = typeof subject.periodsConducted === 'number' && !isNaN(subject.periodsConducted) ? subject.periodsConducted : 0;
+  const attended = typeof subject.periodsAttended === 'number' && !isNaN(subject.periodsAttended) ? subject.periodsAttended : 0;
+
+  const att = calculateAttendancePercentage(conducted, attended);
   const attendancePct = att.percentage;
-  const isAttendanceRisk = att.isRisk;
-  const iaTrend = analyzeIATrend(subject.ia1, subject.ia2, subject.ia3);
+  const isAttendanceRisk = conducted > 0 ? att.isRisk : false;
+  const iaTrend = analyzeIATrend(
+    subject.ia1,
+    subject.ia2,
+    subject.ia3,
+    subject.ia1Absent,
+    subject.ia2Absent,
+    subject.ia3Absent
+  );
 
   // Subject Score Calculation:
-  // Component 1: Internal mark (weight: 55%). Use consolidatedInternal if available, else average of converted IAs
+  // Component 1: Internal mark (weight: 55%). Use consolidatedInternal if available, else average of evaluated IAs
   let internalMark = subject.consolidatedInternal;
   if (internalMark === null || internalMark === undefined || isNaN(internalMark)) {
-    internalMark = calculateSuggestedConsolidatedMark(subject.ia1, subject.ia2, subject.ia3);
+    internalMark = calculateConsolidatedMark(
+      subject.ia1,
+      subject.ia2,
+      subject.ia3,
+      subject.ia1Absent,
+      subject.ia2Absent,
+      subject.ia3Absent
+    );
   }
-  const effectiveInternal = internalMark !== null ? internalMark : 50; // fallback neutral
+  // If no values entered, consider as 0
+  const effectiveInternal = internalMark !== null && !isNaN(internalMark) ? internalMark : 0;
 
   // Component 2: Assignment performance (weight: 20%). Assignment total / 15 converted to / 100
   const assignmentScore100 = (assignmentTotal / 15) * 100;
 
   // Component 3: Attendance performance (weight: 20%)
-  const attendanceScore100 = Math.min(100, attendancePct);
+  const attendanceScore100 = conducted > 0 ? Math.min(100, attendancePct) : 0;
 
   // Component 4: Trend bonus/penalty (weight: 5%)
   let trendAdjustment = 0;
@@ -179,9 +261,12 @@ export function analyzeSubject(subject: Subject): SubjectAnalysis {
     subjectId: subject.id,
     subjectName: subject.subjectName,
     subjectCode: subject.subjectCode,
-    rawIA1: subject.ia1,
-    rawIA2: subject.ia2,
-    rawIA3: subject.ia3,
+    rawIA1: subject.ia1Absent ? null : subject.ia1,
+    rawIA2: subject.ia2Absent ? null : subject.ia2,
+    rawIA3: subject.ia3Absent ? null : subject.ia3,
+    ia1Absent: subject.ia1Absent,
+    ia2Absent: subject.ia2Absent,
+    ia3Absent: subject.ia3Absent,
     convertedIA1: cIA1,
     convertedIA2: cIA2,
     convertedIA3: cIA3,
@@ -191,8 +276,8 @@ export function analyzeSubject(subject: Subject): SubjectAnalysis {
     isAttendanceRisk,
     subjectScore,
     iaTrend,
-    periodsConducted: subject.periodsConducted,
-    periodsAttended: subject.periodsAttended,
+    periodsConducted: conducted,
+    periodsAttended: attended,
   };
 }
 

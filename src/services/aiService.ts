@@ -20,7 +20,7 @@ function createAcademicSummaryPrompt(
   const subjectLines = performance.subjectAnalyses
     .map(
       (s) =>
-        `- ${s.subjectName} (${s.subjectCode || 'N/A'}): IA1=${s.convertedIA1 ?? 'N/A'}/100, IA2=${s.convertedIA2 ?? 'N/A'}/100, IA3=${s.convertedIA3 ?? 'N/A'}/100, IA-Trend=${s.iaTrend}, Consolidated=${s.consolidatedInternal ?? 'N/A'}/100, Assignments=${s.assignmentTotal}/15, Attendance=${s.attendancePct}% (${s.periodsAttended}/${s.periodsConducted} periods, ${s.isAttendanceRisk ? 'RISK (<75%)' : 'Eligible'}), Subject Score=${s.subjectScore}/100`
+        `- ${s.subjectName} (${s.subjectCode || 'N/A'}): IA1=${s.ia1Absent ? 'ABSENT (0%)' : s.convertedIA1 !== null ? `${s.convertedIA1}/100` : 'N/A'}, IA2=${s.ia2Absent ? 'ABSENT (0%)' : s.convertedIA2 !== null ? `${s.convertedIA2}/100` : 'N/A'}, IA3=${s.ia3Absent ? 'ABSENT (0%)' : s.convertedIA3 !== null ? `${s.convertedIA3}/100` : 'N/A'}, IA-Trend=${s.iaTrend}, Consolidated=${s.consolidatedInternal ?? 'N/A'}/100, Assignments=${s.assignmentTotal}/15, Attendance=${s.attendancePct}% (${s.periodsAttended}/${s.periodsConducted} periods, ${s.isAttendanceRisk ? 'RISK (<75%)' : 'Eligible'}), Subject Score=${s.subjectScore}/100`
     )
     .join('\n');
 
@@ -207,7 +207,7 @@ ${performance.subjectAnalyses
   .map(
     (s) =>
       `• **${s.subjectName}** [${s.subjectCode || 'N/A'}]
-   - IA Marks: IA1: ${s.convertedIA1 ?? 'N/A'}% | IA2: ${s.convertedIA2 ?? 'N/A'}% | IA3: ${s.convertedIA3 ?? 'N/A'}% (Trend: ${s.iaTrend})
+   - IA Marks: IA1: ${s.ia1Absent ? 'ABSENT' : s.convertedIA1 !== null ? `${s.convertedIA1}%` : 'N/A'} | IA2: ${s.ia2Absent ? 'ABSENT' : s.convertedIA2 !== null ? `${s.convertedIA2}%` : 'N/A'} | IA3: ${s.ia3Absent ? 'ABSENT' : s.convertedIA3 !== null ? `${s.convertedIA3}%` : 'N/A'} (Trend: ${s.iaTrend})
    - Consolidated Internal: ${s.consolidatedInternal ?? 'N/A'}/100 | Assignments: ${s.assignmentTotal}/15
    - Attendance: ${s.attendancePct}% (${s.periodsAttended}/${s.periodsConducted} periods) - ${s.isAttendanceRisk ? '⚠️ ATTENDANCE SHORTAGE' : 'Eligible'}
    - Computed Course Index: ${s.subjectScore}/100`

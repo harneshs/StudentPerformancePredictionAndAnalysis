@@ -1,5 +1,5 @@
 import { Student, Subject, SettingsConfig, StaffUser, ThemeMode } from '../types';
-import { DEFAULT_THRESHOLDS } from '../utils/academicCalculations';
+import { DEFAULT_THRESHOLDS, calculateConsolidatedMark } from '../utils/academicCalculations';
 
 const STORAGE_KEYS = {
   STUDENTS: 'ai_academic_students_v1',
@@ -927,29 +927,35 @@ export const storageService = {
         return Math.round(clamped);
       };
 
-      const ia1 = ia1Col !== -1 ? numOrNull(cols[ia1Col], 50) : null;
-      const ia2 = ia2Col !== -1 ? numOrNull(cols[ia2Col], 50) : null;
-      const ia3 = ia3Col !== -1 ? numOrNull(cols[ia3Col], 50) : null;
+      const isAbsentVal = (val: string | undefined): boolean => {
+        if (!val) return false;
+        const v = val.trim().toLowerCase();
+        return v === 'ab' || v === 'absent' || v === 'a';
+      };
 
-      // Consolidated calculation if not present
+      const ia1Absent = ia1Col !== -1 ? isAbsentVal(cols[ia1Col]) : false;
+      const ia2Absent = ia2Col !== -1 ? isAbsentVal(cols[ia2Col]) : false;
+      const ia3Absent = ia3Col !== -1 ? isAbsentVal(cols[ia3Col]) : false;
+
+      const ia1 = ia1Absent ? null : (ia1Col !== -1 ? numOrNull(cols[ia1Col], 50) : null);
+      const ia2 = ia2Absent ? null : (ia2Col !== -1 ? numOrNull(cols[ia2Col], 50) : null);
+      const ia3 = ia3Absent ? null : (ia3Col !== -1 ? numOrNull(cols[ia3Col], 50) : null);
+
+      // Consolidated calculation if not explicitly provided in CSV
       let consolidated: number | null = null;
       if (consolCol !== -1 && cols[consolCol]) {
         consolidated = numOrNull(cols[consolCol], 100);
       }
       if (consolidated === null) {
-        const validIAs = [ia1, ia2, ia3].filter((x): x is number => x !== null);
-        if (validIAs.length > 0) {
-          const avgScaled = (validIAs.reduce((a, b) => a + b, 0) / validIAs.length) * 2;
-          consolidated = Math.round(avgScaled);
-        }
+        consolidated = calculateConsolidatedMark(ia1, ia2, ia3, ia1Absent, ia2Absent, ia3Absent);
       }
 
-      const assignment1 = a1Col !== -1 ? numOrNull(cols[a1Col], 5) : 4;
-      const assignment2 = a2Col !== -1 ? numOrNull(cols[a2Col], 5) : 4;
-      const assignment3 = a3Col !== -1 ? numOrNull(cols[a3Col], 5) : 4;
+      const assignment1 = a1Col !== -1 ? (numOrNull(cols[a1Col], 5) ?? 0) : 0;
+      const assignment2 = a2Col !== -1 ? (numOrNull(cols[a2Col], 5) ?? 0) : 0;
+      const assignment3 = a3Col !== -1 ? (numOrNull(cols[a3Col], 5) ?? 0) : 0;
 
-      const conducted = condCol !== -1 ? numOrDefault(cols[condCol], 45) : 45;
-      const attendedRaw = attCol !== -1 ? numOrDefault(cols[attCol], Math.round(conducted * 0.85)) : Math.round(conducted * 0.85);
+      const conducted = condCol !== -1 ? numOrDefault(cols[condCol], 0) : 0;
+      const attendedRaw = attCol !== -1 ? numOrDefault(cols[attCol], 0) : 0;
       const attended = Math.min(conducted, attendedRaw);
 
       student.subjects.push({
@@ -959,6 +965,9 @@ export const storageService = {
         ia1,
         ia2,
         ia3,
+        ia1Absent,
+        ia2Absent,
+        ia3Absent,
         consolidatedInternal: consolidated,
         assignment1,
         assignment2,

@@ -19,6 +19,7 @@ async function startServer() {
     res.json({
       status: "ok",
       hasServerGeminiKey: !!process.env.GEMINI_API_KEY,
+      geminiKeyConfigured: !!process.env.GEMINI_API_KEY,
     });
   });
 

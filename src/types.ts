@@ -5,11 +5,15 @@ export interface Subject {
   ia1: number | null; // 0 - 50
   ia2: number | null; // 0 - 50
   ia3: number | null; // 0 - 50
+  ia1Absent?: boolean;
+  ia2Absent?: boolean;
+  ia3Absent?: boolean;
   consolidatedInternal: number | null; // 0 - 100
+  isConsolidatedManual?: boolean;
   assignment1: number | null; // 0 - 5
   assignment2: number | null; // 0 - 5
   assignment3: number | null; // 0 - 5
-  periodsConducted: number; // > 0
+  periodsConducted: number; // >= 0
   periodsAttended: number; // >= 0 and <= conducted
 }
 
@@ -37,6 +41,9 @@ export interface SubjectAnalysis {
   rawIA1: number | null; // 0 - 50
   rawIA2: number | null; // 0 - 50
   rawIA3: number | null; // 0 - 50
+  ia1Absent?: boolean;
+  ia2Absent?: boolean;
+  ia3Absent?: boolean;
   convertedIA1: number | null; // 0 - 100
   convertedIA2: number | null; // 0 - 100
   convertedIA3: number | null; // 0 - 100

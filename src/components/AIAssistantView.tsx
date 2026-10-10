@@ -12,6 +12,7 @@ import {
   RefreshCw,
   AlertCircle,
   HelpCircle,
+  Search,
 } from 'lucide-react';
 import { Student, SettingsConfig, ChatMessage } from '../types';
 import { analyzeStudentPerformance } from '../utils/academicCalculations';
@@ -38,8 +39,9 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({
   settings,
 }) => {
   const [activeStudentId, setActiveStudentId] = useState<string>(
-    selectedStudentId || (students.length > 0 ? students[0].id : '')
+    selectedStudentId || ''
   );
+  const [searchQuery, setSearchQuery] = useState('');
 
   const [inputMessage, setInputMessage] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -52,7 +54,11 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  const activeStudent = students.find((s) => s.id === activeStudentId) || students[0];
+  useEffect(() => {
+    setActiveStudentId(selectedStudentId || '');
+  }, [selectedStudentId]);
+
+  const activeStudent = students.find((s) => s.id === activeStudentId);
 
   // Initialize or reset chat when student changes
   useEffect(() => {
@@ -66,6 +72,8 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         },
       ]);
+    } else {
+      setMessages([]);
     }
     speechService.stopSpeaking();
     setIsSpeaking(false);
@@ -179,15 +187,131 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({
     });
   };
 
-  if (!activeStudent) {
+  // If no students in system at all
+  if (students.length === 0) {
     return (
-      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12 text-center shadow-sm">
+      <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 p-12 text-center shadow-sm max-w-2xl mx-auto">
         <h3 className="text-base font-semibold text-slate-900 dark:text-white">
           No students registered.
         </h3>
         <p className="text-xs text-slate-500 mt-1">
           Please add a student record before consulting the AI Assistant.
         </p>
+      </div>
+    );
+  }
+
+  // WAITING STATE: If no student selected yet, show chooser
+  if (!activeStudent) {
+    const query = searchQuery.toLowerCase().trim();
+    const matchingStudents = students.filter((s) => {
+      if (!query) return true;
+      return (
+        s.name.toLowerCase().includes(query) ||
+        s.registerNo.toLowerCase().includes(query) ||
+        s.department.toLowerCase().includes(query)
+      );
+    });
+
+    return (
+      <div className="space-y-6 max-w-4xl mx-auto">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-8 shadow-sm text-center space-y-4">
+          <div className="w-14 h-14 mx-auto rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md">
+            <Bot className="w-7 h-7" />
+          </div>
+          <div>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+              AI Smart Academic Assistant
+            </h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-md mx-auto">
+              Please choose a student from the dropdown or search by name / register number below to begin pedagogical Q&amp;A and performance advisory.
+            </p>
+          </div>
+
+          <div className="max-w-xl mx-auto space-y-3 pt-2">
+            <div className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search student by name, register number or branch..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <select
+                id="waiting-chat-dropdown"
+                value={activeStudentId}
+                onChange={(e) => setActiveStudentId(e.target.value)}
+                className="py-2 px-3 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">-- Choose Student from Dropdown --</option>
+                {students.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} ({s.registerNo}) — {s.department}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        {/* Student Cards List for Quick Selection */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+              Select Student to Load Context ({matchingStudents.length} of {students.length})
+            </span>
+            <span className="text-[11px] text-slate-400">
+              Click to launch interactive advisory session
+            </span>
+          </div>
+
+          {matchingStudents.length === 0 ? (
+            <div className="p-8 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-center text-xs text-slate-500">
+              No students match &quot;{searchQuery}&quot;.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              {matchingStudents.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setActiveStudentId(s.id)}
+                  className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-indigo-500 hover:shadow-md transition-all text-left flex flex-col justify-between group cursor-pointer"
+                >
+                  <div>
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <span className="font-bold text-xs text-slate-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400">
+                        {s.name}
+                      </span>
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                        {s.registerNo}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1">
+                      {s.department}
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      {s.year} • Sem {s.semester} • {s.subjects?.length || 0} subjects
+                    </p>
+                  </div>
+
+                  <div className="mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px]">
+                    <span className="text-slate-500 dark:text-slate-400">
+                      Open AI Chat
+                    </span>
+                    <span className="text-indigo-600 dark:text-indigo-400 font-bold group-hover:underline flex items-center">
+                      Start &rarr;
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -226,12 +350,20 @@ export const AIAssistantView: React.FC<AIAssistantViewProps> = ({
             onChange={(e) => setActiveStudentId(e.target.value)}
             className="py-1.5 px-3 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 max-w-xs"
           >
+            <option value="">-- Switch Student --</option>
             {students.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name} ({s.registerNo})
               </option>
             ))}
           </select>
+          <button
+            type="button"
+            onClick={() => setActiveStudentId('')}
+            className="text-[11px] text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 underline whitespace-nowrap"
+          >
+            Change Student
+          </button>
         </div>
       </div>
 

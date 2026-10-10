@@ -50,9 +50,7 @@ export default function App() {
     return '';
   });
 
-  const [selectedStudentId, setSelectedStudentId] = useState<string | undefined>(
-    students.length > 0 ? students[0].id : undefined
-  );
+  const [selectedStudentId, setSelectedStudentId] = useState<string | undefined>(undefined);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
 
   // Apply theme on load and changes
@@ -66,9 +64,6 @@ export default function App() {
     if (existing.length === 0) {
       const demoList = storageService.loadDemoData();
       setStudents(demoList);
-      if (demoList.length > 0) {
-        setSelectedStudentId(demoList[0].id);
-      }
     }
   }, []);
 
@@ -90,9 +85,7 @@ export default function App() {
   };
 
   const handleNavigate = (tab: NavTab, studentId?: string) => {
-    if (studentId) {
-      setSelectedStudentId(studentId);
-    }
+    setSelectedStudentId(studentId || undefined);
     if (tab === 'add-student' && !studentId) {
       setEditingStudent(null);
     }
@@ -110,7 +103,6 @@ export default function App() {
     storageService.saveStudent(student);
     const updated = storageService.getStudents();
     setStudents(updated);
-    setSelectedStudentId(student.id);
     setEditingStudent(null);
     setCurrentTab('students');
   };
@@ -120,24 +112,19 @@ export default function App() {
     const updated = storageService.getStudents();
     setStudents(updated);
     if (selectedStudentId === id) {
-      setSelectedStudentId(updated.length > 0 ? updated[0].id : undefined);
+      setSelectedStudentId(undefined);
     }
   };
 
   const handleLoadDemoData = () => {
     const demo = storageService.loadDemoData();
     setStudents(demo);
-    if (demo.length > 0) {
-      setSelectedStudentId(demo[0].id);
-    }
+    setSelectedStudentId(undefined);
   };
 
   const handleDataChanged = () => {
     const fresh = storageService.getStudents();
     setStudents(fresh);
-    if (fresh.length > 0 && !selectedStudentId) {
-      setSelectedStudentId(fresh[0].id);
-    }
   };
 
   const handleUpdateSettings = (newSettings: SettingsConfig) => {
@@ -204,7 +191,11 @@ export default function App() {
           if (tab === 'add-student') {
             setEditingStudent(null);
           }
+          if (tab === 'performance' || tab === 'ai-assistant' || tab === 'reports') {
+            setSelectedStudentId(undefined);
+          }
           setCurrentTab(tab);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
         staffUser={currentUser}
         onLogout={handleLogout}
@@ -238,6 +229,7 @@ export default function App() {
 
         {currentTab === 'add-student' && (
           <StudentFormView
+            key={editingStudent ? editingStudent.id : 'new-student'}
             initialStudent={editingStudent}
             onSave={handleSaveStudent}
             onCancel={() => {
